@@ -1,0 +1,63 @@
+# SLOs for hello-api
+#   Availability: 99.5% of requests succeed (non-5xx) over 30 days
+#   Latency:      99% of requests complete in under 250 ms
+# Alerts use multi-window burn rates (Google SRE workbook): page when the
+# error budget is burning fast, open a ticket when it burns slowly.
+groups:
+  - name: hello-api-slo-recording
+    rules:
+      - record: slo:http_errors:ratio_rate5m
+        expr: |
+          sum(rate(http_requests_total{code=~"5..",path!="other"}[5m]))
+          / clamp_min(sum(rate(http_requests_total{path!="other"}[5m])), 1e-9)
+      - record: slo:http_errors:ratio_rate30m
+        expr: |
+          sum(rate(http_requests_total{code=~"5..",path!="other"}[30m]))
+          / clamp_min(sum(rate(http_requests_total{path!="other"}[30m])), 1e-9)
+      - record: slo:http_errors:ratio_rate1h
+        expr: |
+          sum(rate(http_requests_total{code=~"5..",path!="other"}[1h]))
+          / clamp_min(sum(rate(http_requests_total{path!="other"}[1h])), 1e-9)
+      - record: slo:http_errors:ratio_rate6h
+        expr: |
+          sum(rate(http_requests_total{code=~"5..",path!="other"}[6h]))
+          / clamp_min(sum(rate(http_requests_total{path!="other"}[6h])), 1e-9)
+      - record: slo:http_latency_under_250ms:ratio_rate5m
+        expr: |
+          sum(rate(http_request_duration_seconds_bucket{le="0.25"}[5m]))
+          / clamp_min(sum(rate(http_request_duration_seconds_count[5m])), 1e-9)
+
+  - name: hello-api-slo-alerts
+    rules:
+      # 14.4x burn over 1h (confirmed over 5m) spends 2% of a 30-day budget in an hour.
+      - alert: HelloApiErrorBudgetFastBurn
+        expr: |
+          slo:http_errors:ratio_rate1h > (14.4 * 0.005)
+          and
+          slo:http_errors:ratio_rate5m > (14.4 * 0.005)
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: "hello-api is burning its error budget fast"
+          runbook_url: "https://github.com/mest0006/secure-k8s-platform/blob/main/docs/runbook.md#error-budget-burn"
+      # 6x burn over 6h (confirmed over 30m) spends 5% of the budget in 6 hours.
+      - alert: HelloApiErrorBudgetSlowBurn
+        expr: |
+          slo:http_errors:ratio_rate6h > (6 * 0.005)
+          and
+          slo:http_errors:ratio_rate30m > (6 * 0.005)
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "hello-api is steadily burning its error budget"
+          runbook_url: "https://github.com/mest0006/secure-k8s-platform/blob/main/docs/runbook.md#error-budget-burn"
+      - alert: HelloApiLatencySLOBreach
+        expr: slo:http_latency_under_250ms:ratio_rate5m < 0.99
+        for: 10m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "Fewer than 99% of hello-api requests finish under 250 ms"
+          runbook_url: "https://github.com/mest0006/secure-k8s-platform/blob/main/docs/runbook.md#latency"

@@ -1,0 +1,23 @@
+# Only pull from registries we control and scan.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-image-registries
+  annotations:
+    policies.kyverno.io/category: Supply Chain
+    policies.kyverno.io/severity: high
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: allowed-registries
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+      validate:
+        message: "Images must come from ghcr.io/mest0006/."
+        pattern:
+          spec:
+            containers:
+              - image: "ghcr.io/mest0006/*"

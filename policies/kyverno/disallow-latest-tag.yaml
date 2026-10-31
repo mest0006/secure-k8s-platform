@@ -1,0 +1,35 @@
+# Mutable tags like ":latest" broke image pulls on offline clusters and make it
+# impossible to know what is running. Require an explicit tag or a digest.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-tag
+  annotations:
+    policies.kyverno.io/category: Supply Chain
+    policies.kyverno.io/severity: high
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: require-image-tag-or-digest
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+      validate:
+        message: "Images must use an explicit tag or a digest."
+        pattern:
+          spec:
+            containers:
+              - image: "*:* | *@sha256:*"
+    - name: disallow-latest
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]
+      validate:
+        message: "The ':latest' tag is not allowed. Pin a version or a digest."
+        pattern:
+          spec:
+            containers:
+              - image: "!*:latest"
