@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@v5
         with:
           version: v3.16.2
       - uses: kyverno/action-install-cli@v0.2.0
@@ -138,7 +138,7 @@ jobs:
     needs: [app-tests, k8s-manifests]
     steps:
       - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@v5
         with:
           version: v3.16.2
       - uses: helm/kind-action@v1.10.0
